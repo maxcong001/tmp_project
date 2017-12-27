@@ -23,7 +23,7 @@ bool set_bit(uint8_t *input, int pos, bool data)
     }
 }
 
-#define CONFIG_SIZE 7
+#define CONFIG_SIZE 6
 class lora_config
 {
   public:
@@ -36,7 +36,7 @@ class lora_config
         _config[3] = 0x1A;
         _config[4] = 0x17;
         _config[5] = 0x44;
-        _config[5] = 0;
+        _config[6] = 0;
     }
     ~lora_config()
     {
@@ -165,49 +165,131 @@ class lora_config
         _config[4] = _config[5] | pow;
     }
 
-  private:
-    uint8_t _config[CONFIG_SIZE];
-};
-int main()
-{
-    lora_config cfg;
-    printf("serial test start ...\n");
-    int fd;
-    if (wiringPiSetup() < 0)
-        return 1;
-    printf("after pi setup ...\n");
-    pinMode(0, OUTPUT);
-    pinMode(2, OUTPUT);
-    digitalWrite(0, HIGH);
-    delay(500);
-    digitalWrite(2, HIGH);
-    printf("set IO to HIGH ...\n");
-    delay(2000);
-    printf("start opening usrt ...\n");
-    if ((fd = serialOpen("/dev/ttyAMA0", 9600)) < 0)
+    uint8_t *get_config()
     {
-        printf("open uart fail!\n");
-        return 1;
+        return _config;
     }
 
-    printf("open usrt successfully ...\n");
-    delay(2000);
-    printf("after wait for 2 seconds ...\n");
-    char read_config[8] = {0xC1, 0xC1, 0xC1, 0};
-    printf("send out %d, %d, %d\n", read_config[0], read_config[1], read_config[2]);
-    serialPuts(fd, read_config);
-    delay(2000);
-    //serialPrintf(fd, "\n");A
+  private:
+    uint8_t _config[CONFIG_SIZE + 1];
+};
+
+class lora_uart
+{
+  public:
+    lora_uart(){};
+    lora_uart(uint8_t addr_h, uint8_t addr_l, uint8_t chan)
+    {
+        address_high = addr_h;
+        address_low = addr_l;
+        channel = chan;
+    }
+    ~lora_uart()
+    {
+        serialClose(uart_fd);
+    };
+
+    bool init()
+    {
+        _cfg.set_mode(true);
+        _cfg.set_save_once(true);
+        _cfg.set_node_address(address_high, address_low);
+        _cfg.set_channel(23);
+
+        if (wiringPiSetup() < 0)
+        {
+            printf("wiring setup fail!\n");
+            return false;
+        }
+        pinMode(0, OUTPUT);
+        pinMode(2, OUTPUT);
+        digitalWrite(0, HIGH);
+        digitalWrite(2, HIGH);
+        delay(500);
+        if ((uart_fd = serialOpen("/dev/ttyAMA0", 9600)) < 0)
+        {
+            printf("open uart fail!\n");
+            return false;
+        }
+        delay(500);
+        char *config = (char *)(_cfg.get_config());
+        serialPrintf(uart_fd, config);
 #if 0
-    serialPuts(fd, 0xC1);
-    serialPuts(fd, 0xC1);
-    serialPuts(fd, 0xC1);
+        for (int i = 0; i < CONFIG_SIZE; i++)
+        {
+            serialPuts(uart_fd, &config[i]);
+            printf(" send  config : %X\n", config[i]);
+        }
+#endif
+        delay(500);
+        // now read back the config
+        char read_config[2] = {0xC1, 0};
+        for (int i = 0; i < 3; i++)
+        {
+            serialPuts(uart_fd, &read_config[0]);
+        }
+        delay(100);
+
+        for (int i = 0; i < 6; i++)
+        {
+            printf("configuration is : %X\n", serialGetchar(uart_fd));
+        }
+        printf("read success\n");
+        delay(100);
+
+        digitalWrite(0, LOW);
+        digitalWrite(2, LOW);
+        delay(100);
+        return true;
+    }
+
+    bool send(char *msg, uint8_t len, uint8_t addr_h, uint8_t addr_l, uint8_t chan)
+    {
+        uint8_t tmp_addrh = addr_h;
+        uint8_t tmp_addrl = addr_l;
+        uint8_t tmp_chan = chan;
+        serialPuts(uart_fd, (char *)(&tmp_addrh));
+        serialPuts(uart_fd, (char *)(&tmp_addrl));
+        serialPuts(uart_fd, (char *)(&chan));
+        for (int i = 0; i < len; i++)
+        {
+            serialPuts(uart_fd, &msg[i]);
+        }
+    }
+    int getfd()
+    {
+        return uart_fd;
+    }
+
+  private:
+    lora_config _cfg;
+
+    uint8_t address_high;
+    uint8_t address_low;
+    uint8_t channel;
+    int uart_fd;
+};
+
+int main()
+{
+    lora_uart lora(0x2, 0x2, 12);
+    if (lora.init())
+    {
+    }
+    else
+    {
+        printf("lora init fail!");
+    }
+#if 0
+    for (int i = 0; i < 10; i++)
+    {
+        printf("read from uart %X\n", serialGetchar(lora.getfd()));
+    }
 #endif
     while (1)
     {
-
-        printf("receive %d\n", serialGetchar(fd));
+        printf("receive %X\n", serialGetchar(lora.getfd()));
     }
-    serialClose(fd);
+
     return 0;
 }

@@ -1,0 +1,44 @@
+PROJECT(translib)
+CMAKE_MINIMUM_REQUIRED(VERSION 2.6)
+#FIND_PACKAGE(libevnet REQUIRED)
+
+ENABLE_TESTING()
+
+SET(DBW_VERSION_MAJOR 1)
+SET(DBW_VERSION_MINOR 0)
+SET(DBW_VERSION_PATCH 0)
+SET(DBW_VERSION ${DBW_VERSION_MAJOR}.${DBW_VERSION_MINOR}.${DBW_VERSION_PATCH})
+
+# Default is OFF so that libary users can build it directly without patch file
+OPTION(ENABLE_TEST "Build test files" ON)
+
+SET(LIBRARY_OUTPUT_PATH ${PROJECT_SOURCE_DIR}/lib)
+SET(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/bin)
+SET(TESTS_BINARY ${PROJECT_NAME}_tests)
+SET(EXAMPLE_BINARY ${PROJECT_NAME}_example)
+
+# set compiler flags
+IF(ENABLE_TEST)
+    # disable optimization for testing version
+    set(CCXX_FLAGS "-g -Wall -std=c++11 -fPIC")
+ELSE()
+    set(CCXX_FLAGS "-g2 -Wall -std=c++11 -fPIC")
+ENDIF()
+
+#for 32-bit build
+#set(CCXX_FLAGS "-Wall -O2 -g -DNDEBUG -m32")
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CCXX_FLAGS} -march=native")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CCXX_FLAGS}")
+
+MESSAGE(STATUS "start build")
+MESSAGE(STATUS "CMAKE_CXX_FLAGS: " ${CMAKE_CXX_FLAGS})
+
+
+ADD_SUBDIRECTORY(src)
+IF(ENABLE_TEST)
+    ADD_SUBDIRECTORY(example)
+	ADD_SUBDIRECTORY(test)
+ENDIF()
+
+SEPARATE_ARGUMENTS(CMD_ARGS)
+# ADD_TEST(delivery_test ${PROJECT_SOURCE_DIR}/bin/${TEST_BINARY})

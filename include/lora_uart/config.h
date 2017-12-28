@@ -1,10 +1,11 @@
 #pragma once
-#include <stdint.h>
+//#include <stdint.h>
+#include "lora_uart/util.h"
 #include <stdio.h>
 #include <wiringPi.h>
 #include <wiringSerial.h>
 #include "logger/logger.h"
-#define CONFIG_SIZE 6
+
 bool set_bit(uint8_t *input, int pos, bool data);
 
 class lora_config

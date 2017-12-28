@@ -81,14 +81,12 @@ class ExampleTcpServer : public translib::TcpServer
     {
 
         uint32_t length = session->getInputBufferLength();
-
         uint8_t buff[10240];
 
         session->readInputBuffer(buff, length);
-        //        std::string str((char *)buff, length);
+        //std::string str((char *)buff, length);
 
         __LOG(debug, "receive message with length : " << length); // << " data is " << str);
-
         __LOG(debug, "sesson id is : " << session->id());
     }
 

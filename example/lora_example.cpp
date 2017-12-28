@@ -1,6 +1,6 @@
 #include "logger/logger.h"
 #include "index.h"
-#include "lora_uart/lora_uart.h"
+#include "lora_uart/lora_uart_server.h"
 int glob_fd;
 void tmp_cb(void)
 {
@@ -13,31 +13,31 @@ void tmp_cb(void)
 
     printf("Maxx : receive %d bytes\n", num);
 
-    while(serialDataAvail(glob_fd))
+    while (serialDataAvail(glob_fd))
     {
         printf("receive %X\n", serialGetchar(glob_fd));
     }
-
 }
 void lora_server_example()
 {
-    lora_uart lora(0x2, 0x2, 12);
-    lora.set_low_power_call_back(tmp_cb);
-    if (lora.init())
+
+    auto server_ptr = lora_uart_server::instance();
+
+
+    if (!server_ptr->init())
     {
-        printf("lora init success");
+        __LOG(error, "lora server init fail");
+        return ;
     }
     else
     {
-        printf("lora init fail!");
+        __LOG(debug, "lora server init success!");
     }
-    delay(1000);
-    glob_fd = lora.get_fd();
 
     while (1)
     {
-        delay(10);
-        printf(".");
+        delay(10000);
+        __LOG(debug, "running.....");
 #if 0
         printf("receive %X\n", serialGetchar(glob_fd));
 #endif
@@ -61,7 +61,7 @@ void lora_client_example()
         printf("lora init fail!");
     }
     delay(1000);
-    while(1)//(serialDataAvail(glob_fd))
+    while (1) //(serialDataAvail(glob_fd))
     {
         printf("receive %X\n", serialGetchar(glob_fd));
     }

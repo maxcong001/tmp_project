@@ -43,13 +43,17 @@ class lora_uart
         _cfg.set_channel(channel);
         if (wiringPiSetup() < 0)
         {
-            printf("wiring setup fail!\n");
+            __LOG(error, "wiring setup fail!");
             return false;
         }
         if ((uart_fd = serialOpen("/dev/ttyAMA0", 9600)) < 0)
         {
-            printf("open uart fail!\n");
+            __LOG(error, "open uart fail!");
             return false;
+        }
+        else
+        {
+            __LOG(debug, "open uart fd success, fd is : " << uart_fd);
         }
         delay(500);
         push_config_change(_cfg);
@@ -68,7 +72,7 @@ class lora_uart
         for (int i = 0; i < CONFIG_SIZE; i++)
         {
             serialPutchar(uart_fd, config[i]);
-            printf(" send  config : %X\n", config[i]);
+            __LOG(debug, "send  config : " << (int)config[i]);
         }
         delay(500);
         // now read back the config
@@ -76,16 +80,17 @@ class lora_uart
         for (int i = 0; i < 3; i++)
         {
             serialPutchar(uart_fd, read_config[0]);
-            printf(" send read %X \n", read_config[0]);
+            __LOG(debug, "send read  "
+                             << (int)read_config[0]);
         }
         delay(100);
-        printf("now updated config is :\n");
+        __LOG(debug, "now updated config is :");
         while (serialDataAvail(uart_fd))
         {
-            printf("%X \n", serialGetchar(uart_fd));
+            __LOG(debug, " " << serialGetchar(uart_fd));
         }
         delay(100);
-        // change to the mode 
+        // change to the mode
         digitalWrite(M0_PIN, HIGH);
         digitalWrite(M1_PIN, LOW);
         delay(1000);
@@ -103,15 +108,16 @@ class lora_uart
         {
             serialPutchar(uart_fd, msg[i]);
         }
-        printf("send message : \n");
+        __LOG(debug, "send message : ");
         for (int i = 0; i < len; i++)
         {
-            printf("%X\n", msg[i]);
+            __LOG(debug, "" << msg[i]);
         }
         return true;
     }
     int get_fd()
     {
+//        __LOG(debug, "[lora_uart] get fd return : " << uart_fd);
         return uart_fd;
     }
     void set_address_high(uint8_t add_h)

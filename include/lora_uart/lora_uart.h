@@ -1,11 +1,26 @@
 #include "lora_uart/config.h"
 #include "translib/timerManager.h"
+#define M0_PIN 0
+#define M1_PIN 2
+#define AUX_PIN 3
+/*
+example of low power callback function
+void lowPowerCb()
+{
+    if (serialDataAvail(fd))
+    {
+        if (serialGetchar(fd) == '@')
+        {
+        }
+    }
+}
+*/
 class lora_uart
 {
   public:
-    typedef void (*evCb)(evutil_socket_t fd, short event, void *args);
-    lora_uart() : _loop(translib::TimerManager::instance()->getLoop()){};
-    lora_uart(uint8_t addr_h, uint8_t addr_l, uint8_t chan) : _loop(translib::TimerManager::instance()->getLoop())
+    typedef void (*lp_cb)(void);
+    lora_uart(){};
+    lora_uart(uint8_t addr_h, uint8_t addr_l, uint8_t chan)
     {
         address_high = addr_h;
         address_low = addr_l;
@@ -15,55 +30,45 @@ class lora_uart
     {
         serialClose(uart_fd);
     };
-    void set_callback(evCb cb)
+    void set_low_power_call_back(lp_cb cb)
     {
-        eventCallback = cb;
+        _low_power_cb = cb;
     }
     bool init()
     {
-
         _cfg.set_mode(true);
         _cfg.set_save_once(true);
         _cfg.set_node_address(address_high, address_low);
         _cfg.set_channel(channel);
-
         if (wiringPiSetup() < 0)
         {
             printf("wiring setup fail!\n");
             return false;
         }
-        pinMode(0, OUTPUT);
-        pinMode(2, OUTPUT);
-        digitalWrite(0, HIGH);
-        digitalWrite(2, HIGH);
-        delay(500);
         if ((uart_fd = serialOpen("/dev/ttyAMA0", 9600)) < 0)
         {
             printf("open uart fail!\n");
             return false;
         }
         delay(500);
-
-        // now we get the fd
-
-        _event = event_new(_loop, uart_fd, EV_READ | EV_PERSIST, eventCallback, NULL);
-        if (NULL == _event)
-        {
-            return false;
-        }
-        if (0 != event_add(_event, NULL))
-        {
-            return false;
-        }
-
-        char *config = (char *)(_cfg.get_config());
-
+        push_config_change(_cfg);
+        wiringPiISR(AUX_PIN, INT_EDGE_FALLING, _low_power_cb);
+        return true;
+    }
+    bool push_config_change(lora_config &cfg)
+    {
+        pinMode(M0_PIN, OUTPUT);
+        pinMode(M1_PIN, OUTPUT);
+        pinMode(AUX_PIN, INPUT);
+        digitalWrite(M0_PIN, HIGH);
+        digitalWrite(M1_PIN, HIGH);
+        delay(500);
+        char *config = (char *)(cfg.get_config());
         for (int i = 0; i < CONFIG_SIZE; i++)
         {
             serialPutchar(uart_fd, config[i]);
             printf(" send  config : %X\n", config[i]);
         }
-
         delay(500);
         // now read back the config
         char read_config[2] = {0xC1, 0};
@@ -73,20 +78,16 @@ class lora_uart
             printf(" send read %X \n", read_config[0]);
         }
         delay(100);
-
-        for (int i = 0; i < 6; i++)
+        while (serialDataAvail(uart_fd))
         {
             printf("receive %X\n", serialGetchar(uart_fd));
         }
-        printf("read success\n");
         delay(100);
-
-        digitalWrite(0, LOW);
-        digitalWrite(2, LOW);
+        digitalWrite(M0_PIN, LOW);
+        digitalWrite(M1_PIN, LOW);
         delay(1000);
         return true;
     }
-
     bool send(char *msg, uint8_t len, uint8_t addr_h, uint8_t addr_l, uint8_t chan)
     {
         uint8_t tmp_addrh = addr_h;
@@ -106,9 +107,17 @@ class lora_uart
         }
         return true;
     }
-    int getfd()
+    int get_fd()
     {
         return uart_fd;
+    }
+    void set_address_high(uint8_t add_h)
+    {
+        address_high = add_h;
+    }
+    void set_address_low(uint8_t add_l)
+    {
+        address_low = add_l;
     }
 
   private:
@@ -117,7 +126,5 @@ class lora_uart
     uint8_t address_low;
     uint8_t channel;
     int uart_fd;
-    translib::Loop &_loop;
-    evCb eventCallback;
-    struct event *_event;
+    lp_cb _low_power_cb;
 };

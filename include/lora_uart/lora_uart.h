@@ -1,3 +1,4 @@
+#pragma once
 #include "lora_uart/config.h"
 #include "translib/timerManager.h"
 #define M0_PIN 0
@@ -78,12 +79,14 @@ class lora_uart
             printf(" send read %X \n", read_config[0]);
         }
         delay(100);
+        printf("now updated config is :\n");
         while (serialDataAvail(uart_fd))
         {
-            printf("receive %X\n", serialGetchar(uart_fd));
+            printf("%X \n", serialGetchar(uart_fd));
         }
         delay(100);
-        digitalWrite(M0_PIN, LOW);
+        // change to the mode 
+        digitalWrite(M0_PIN, HIGH);
         digitalWrite(M1_PIN, LOW);
         delay(1000);
         return true;

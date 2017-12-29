@@ -40,11 +40,11 @@ void lora_server_example()
         __LOG(debug, "running.....");
 #if 0
         printf("receive %X\n", serialGetchar(glob_fd));
-#endif
-#if 0
+
+
         printf("now send message\n");
         char tmp_buf[10] = {0x11, 0x12, 0x13};
-        lora.send(tmp_buf, 3, 0x3, 0x3, 12);
+        server_ptr->send(tmp_buf, 3, 0x00, 0x1, 1);
 #endif
     }
 }

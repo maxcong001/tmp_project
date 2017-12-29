@@ -1,9 +1,31 @@
-#pragma once
 
-#include "lora_uart/util.h"
+#define MAX_LORA_BUF 10
+#define CONFIG_SIZE 6
+// Use pin 2 as wake up pin
+const int wakeUpPin = 2;
+const int ledPin = 13;
+const int m0Pin = 3;
+const int m1Pin = 4;
 
-bool set_bit(uint8_t *input, int pos, bool data);
-
+bool set_bit(uint8_t *input, int pos, bool data)
+{
+    if (input && pos > 0 && pos < 8)
+    {
+        if (data)
+        {
+            *input = *input | (1 << pos);
+        }
+        else
+        {
+            *input = *input & (~(1 << pos));
+        }
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 class lora_config
 {
   public:
@@ -153,3 +175,67 @@ class lora_config
   private:
     uint8_t _config[CONFIG_SIZE + 1];
 };
+
+void setup()
+{
+    Serial1.begin(9600);
+    Serial.begin(9600);
+    pinMode(wakeUpPin, INPUT);
+    //digitalWrite(wakeUpPin, HIGH);
+    pinMode(ledPin, OUTPUT);
+    pinMode(m0Pin, OUTPUT);
+    pinMode(m1Pin, OUTPUT);
+    digitalWrite(m0Pin, HIGH);
+    digitalWrite(m1Pin, HIGH);
+    digitalWrite(ledPin, LOW);
+    delay(1000);
+    // wait the lora module to be ready
+
+    //digitalWrite(ledPin, HIGH);
+    lora_config _cfg;
+    _cfg.set_mode(true);
+    _cfg.set_save_once(true);
+    _cfg.set_node_address(0x00, 0x01);
+    _cfg.set_channel(19);
+
+    char *config = (char *)(_cfg.get_config());
+    Serial1.write(config, CONFIG_SIZE);
+    Serial.write(config, CONFIG_SIZE);
+    delay(1000);
+    // now read back the config
+    char read_config[3] = {0xC1, 0xC1, 0xC1};
+
+    Serial1.write(read_config, 3);
+    Serial.write(read_config, 3);
+    int incomingByte = 0;
+    delay(1000);
+    //Serial.write("read back the configuration aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+    while (Serial1.available() > 0)
+    {
+        // read the incoming byte:
+        incomingByte = Serial1.read();
+        Serial.write(incomingByte);
+    }
+
+    delay(1000);
+    digitalWrite(m0Pin, LOW);
+    digitalWrite(m1Pin, LOW);
+    delay(1000);
+    delay(1000);
+    digitalWrite(ledPin, HIGH);
+}
+
+void loop()
+{
+    delay(1000);
+    process_lora_message();
+}
+// for the uart write, please leave enough time to send out the message
+// before going to sleep
+void process_lora_message()
+{
+    char init_msg[5] = {0x00, 0x01, 0x17, 'C', 'C'};
+    Serial1.write(init_msg, 5);
+    Serial.write(init_msg, 5);
+    delay(1000);
+}

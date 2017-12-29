@@ -1,9 +1,32 @@
-#pragma once
+// **** INCLUDES *****
+#include "LowPower.h"
+#define MAX_LORA_BUF 10
+#define CONFIG_SIZE 6
+// Use pin 2 as wake up pin
+const int wakeUpPin = 2;
+const int ledPin = 13;
+const int m0Pin = 3;
+const int m1Pin = 4;
 
-#include "lora_uart/util.h"
-
-bool set_bit(uint8_t *input, int pos, bool data);
-
+bool set_bit(uint8_t *input, int pos, bool data)
+{
+    if (input && pos > 0 && pos < 8)
+    {
+        if (data)
+        {
+            *input = *input | (1 << pos);
+        }
+        else
+        {
+            *input = *input & (~(1 << pos));
+        }
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
 class lora_config
 {
   public:
@@ -153,3 +176,114 @@ class lora_config
   private:
     uint8_t _config[CONFIG_SIZE + 1];
 };
+void wakeUp()
+{
+    // Just a handler for the pin interrupt.
+}
+
+void setup()
+{
+    Serial.begin(9600);
+    pinMode(wakeUpPin, INPUT);
+    //digitalWrite(wakeUpPin, HIGH);
+    pinMode(ledPin, OUTPUT);
+    pinMode(m0Pin, INPUT);
+    pinMode(m1Pin, INPUT);
+
+    digitalWrite(ledPin, LOW);
+    digitalWrite(m0Pin, HIGH);
+    digitalWrite(m1Pin, HIGH);
+    delay(1000);
+    // wait the lora module to be ready
+
+    //digitalWrite(ledPin, HIGH);
+    lora_config _cfg;
+    _cfg.set_mode(true);
+    _cfg.set_save_once(true);
+    _cfg.set_node_address(0x00, 0x01);
+    _cfg.set_channel(1);
+
+    char *config = (char *)(_cfg.get_config());
+    Serial.write(config, CONFIG_SIZE);
+    delay(1000);
+    digitalWrite(m0Pin, HIGH);
+    digitalWrite(m1Pin, HIGH);
+    delay(1000);
+
+    char init_msg[5] = {0x00, 0x01, 0x17, 0x11, 0x12};
+    Serial.write(init_msg, 5);
+    delay(1000);
+    digitalWrite(ledPin, HIGH);
+}
+
+void loop()
+{
+    delay(1000);
+    // Allow wake up pin to trigger interrupt on low.
+    attachInterrupt(0, wakeUp, LOW);
+
+    // Enter power down state with ADC and BOD module disabled.
+    // Wake up when wake up pin is low.
+    LowPower.powerDown(SLEEP_FOREVER, ADC_OFF, BOD_OFF);
+
+    // Disable external pin interrupt on wake up pin.
+    detachInterrupt(0);
+
+    // Do something here
+    // Example: Read sensor, data logging, data transmission.
+
+    process_lora_message();
+}
+// for the uart write, please leave enough time to send out the message
+// before going to sleep
+void process_lora_message()
+{
+
+    char init_msg[5] = {0x00, 0x01, 0x17, 0x11, 0x12};
+    Serial.write(init_msg, 5);
+    delay(1000);
+
+#if 0
+    char buf[MAX_LORA_BUF] = {0};
+    // read the message for uart
+    int num = Serial.available();
+    if (num > 0)
+    {
+        if (num <= MAX_LORA_BUF)
+        {
+            Serial.readBytes(buf, num);
+        }
+        else
+        {
+            // more than MAX
+            // do nothing but return
+            return;
+        }
+    }
+    else
+    {
+        // errors happen
+        return;
+    }
+
+    // process the logic
+    switch (buf[0])
+    {
+    case 1:
+        // this is on_off
+        if (buf[1] == 1)
+        {
+            digitalWrite(ledPin, HIGH);
+        }
+        else
+        {
+            digitalWrite(ledPin, LOW);
+        }
+        break;
+    default:
+        break;
+    }
+    // send back message if needed
+    // note: if you send message via uart, then please leave enough time before sleep
+#endif
+}

@@ -3,7 +3,6 @@
 #include <tuple>
 #include "atomic"
 
-
 void lora_uart_server_cb(void);
 // for server, its address is 0x01 0x01 channel is 23
 // all the node should connect to it
@@ -46,6 +45,10 @@ class lora_uart_server
     {
         //__LOG(debug, "[lora_uart_server] get fd return : " << lora.get_fd());
         return lora.get_fd();
+    }
+    bool send(char *msg, uint8_t len, uint8_t addr_h, uint8_t addr_l, uint8_t chan)
+    {
+        return lora.send(msg, len, addr_h, addr_l, chan);
     }
 
   private:

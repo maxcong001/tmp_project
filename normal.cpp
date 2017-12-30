@@ -178,9 +178,8 @@ class lora_config
 
 void setup()
 {
-    Serial1.begin(9600);
     Serial.begin(9600);
-    pinMode(wakeUpPin, INPUT);
+    //pinMode(wakeUpPin, INPUT);
     //digitalWrite(wakeUpPin, HIGH);
     pinMode(ledPin, OUTPUT);
     pinMode(m0Pin, OUTPUT);
@@ -196,28 +195,26 @@ void setup()
     _cfg.set_mode(true);
     _cfg.set_save_once(true);
     _cfg.set_node_address(0x00, 0x01);
-    _cfg.set_channel(19);
+    _cfg.set_channel(12);
 
     char *config = (char *)(_cfg.get_config());
-    Serial1.write(config, CONFIG_SIZE);
     Serial.write(config, CONFIG_SIZE);
     delay(1000);
+#if 0
     // now read back the config
     char read_config[3] = {0xC1, 0xC1, 0xC1};
-
-    Serial1.write(read_config, 3);
     Serial.write(read_config, 3);
     int incomingByte = 0;
     delay(1000);
     //Serial.write("read back the configuration aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-    while (Serial1.available() > 0)
+    while (Serial.available() > 0)
     {
         // read the incoming byte:
-        incomingByte = Serial1.read();
-        Serial.write(incomingByte);
+        incomingByte = Serial.read();
+  
     }
-
     delay(1000);
+#endif
     digitalWrite(m0Pin, LOW);
     digitalWrite(m1Pin, LOW);
     delay(1000);
@@ -235,7 +232,7 @@ void loop()
 void process_lora_message()
 {
     char init_msg[5] = {0x00, 0x01, 0x17, 'C', 'C'};
-    Serial1.write(init_msg, 5);
     Serial.write(init_msg, 5);
     delay(1000);
 }
+

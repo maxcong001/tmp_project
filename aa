@@ -1,0 +1,229 @@
+#include <map>
+#include <list>
+#include <set>
+#include <logger.h>
+#include <utility>
+#include <threadpool.h>
+#include <thread>
+
+typedef std::pair<int, int> node;
+
+std::set<node> find_next(int x, int y, int x_max);
+void process_node(int x, int y, std::set<node> node_set, std::set<node> del_node, int _max, std::atomic<unsigned long> count);
+// sore all the node info
+std::set<node> nodes_set;
+// store all the deleted node
+std::set<node> deleted_node;
+
+bool Jobs(int x, int y, int _max, std::atomic<unsigned long> count)
+{
+    process_node(x, y, nodes_set, deleted_node, _max, count);
+    return true;
+}
+
+void task(int _max);
+
+int main()
+{
+    // set_log_level(logger_iface::log_level::warn);
+    set_log_level(logger_iface::log_level::warn);
+    for (int i = 1; i < 5; i++)
+    {
+        task(i);
+        nodes_set.clear();
+        deleted_node.clear();
+    }
+}
+
+void task(int _max)
+{
+    std::atomic<unsigned long> count(0);
+    std::vector<std::future<bool>> results;
+    // __LOG(debug, "start>>>>>>>>");
+
+    for (int i = 0; i < _max; i++)
+    {
+        node tmp_node(i, 0);
+        auto ret = nodes_set.insert(tmp_node);
+        __LOG(debug, "insert : " << tmp_node.first << ": " << tmp_node.second << ". insert return " << ret.second);
+        tmp_node.first = i;
+        tmp_node.second = 1;
+        ret = nodes_set.insert(tmp_node);
+        __LOG(debug, "insert : " << tmp_node.first << ": " << tmp_node.second << ". insert return " << ret.second);
+    }
+    __LOG(debug, "set size is : " << nodes_set.size() << ".  dump the nodes in the set:");
+    for (auto i : nodes_set)
+    {
+        __LOG(debug, "" << i.first << " : " << i.second);
+    }
+
+    /////////////////////////////////////////////
+
+    // start threads according to cores
+    int thread_num = std::thread::hardware_concurrency();
+    if (!thread_num)
+    {
+        thread_num = 2;
+    }
+    //__LOG(debug, "start " << thread_num << " threads to do the jobs");
+    // start threads
+    ThreadPool pool(thread_num);
+    for (auto i : nodes_set)
+    {
+        results.emplace_back(
+            pool.enqueue([=] {
+                return Jobs(i.first, i.second, _max, count);
+            }));
+    }
+
+    for (auto &&result : results)
+    {
+        bool ret = result.get();
+        //__LOG(debug, "one job had finished!");
+    }
+    __LOG(error, "_max is : " << _max << " . count is : " << count);
+}
+
+void process_node(int x, int y, std::set<node> node_set, std::set<node> del_node, int _max, std::atomic<unsigned long> count)
+{
+    std::set<node> tmp_node_set;
+    std::set<node> tmp_del_node_set;
+    tmp_node_set = node_set;
+    tmp_del_node_set = del_node;
+
+    node tmp_node(x, y);
+
+    if (tmp_del_node_set.find(tmp_node) != tmp_del_node_set.end())
+    {
+        //__LOG(debug, "x :" << x << ". y : " << y << " already deleted");
+        return;
+    }
+    auto iter = tmp_node_set.find(tmp_node);
+    if (iter != tmp_node_set.end())
+    {
+        if (tmp_node_set.size() == 1)
+        {
+            /*
+            if (count % 1000 == 1)
+            {
+                __LOG(warn, "now counter is " << count);
+            }
+            */
+            //__LOG(warn, "now counter is " << count);
+            count++;
+            return;
+        }
+    }
+    else
+    {
+        __LOG(error, " reach the end of the node");
+        return;
+    }
+    tmp_node_set.erase(iter);
+    tmp_del_node_set.insert(tmp_node);
+
+    //__LOG(debug, "[process_node] set size is : " << tmp_node_set.size() << ". processing node : " << x << " : " << y);
+
+    std::set<node> near_node;
+    near_node = find_next(x, y, _max);
+    /*
+    for (auto i : near_node)
+    {
+        __LOG(debug, "[next node] is :" << i.first << " : " << i.second);
+    }
+*/
+    for (auto i : near_node)
+    {
+        process_node(i.first, i.second, tmp_node_set, tmp_del_node_set, _max, count);
+    }
+}
+
+std::set<node> find_next(int x, int y, int x_max)
+{
+    std::set<node> tmp_node_set;
+
+    if (y == 0)
+    {
+        if ((x > 0) && (x < x_max - 1))
+        {
+            node tmp_node(0, 0);
+            tmp_node.first = x - 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x - 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x + 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x + 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+        }
+        else if (x == 0)
+        {
+            node tmp_node(0, 1);
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+        }
+        else if (x == (x_max - 1))
+        {
+            node tmp_node(x, 1);
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x - 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x - 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+        }
+    }
+    else if (y == 1)
+    {
+        if ((x > 0) && (x < x_max - 1))
+        {
+            node tmp_node(0, 0);
+            tmp_node.first = x - 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x - 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x + 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x + 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+        }
+        else if (x == 0)
+        {
+            node tmp_node(0, 0);
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+        }
+        else if (x == (x_max - 1))
+        {
+            node tmp_node(x, 0);
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x - 1;
+            tmp_node.second = 0;
+            tmp_node_set.emplace(tmp_node);
+            tmp_node.first = x - 1;
+            tmp_node.second = 1;
+            tmp_node_set.emplace(tmp_node);
+        }
+    }
+
+    return tmp_node_set;
+}

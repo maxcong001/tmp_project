@@ -36,8 +36,7 @@ void lora_server_example()
 
     while (1)
     {
-        
-        delay(100);
+        delay(500);
         __LOG(debug, "running.....");
 #if 0
         printf("receive %X\n", serialGetchar(glob_fd));
@@ -61,7 +60,18 @@ void lora_client_example()
         printf("lora init fail!");
     }
     glob_fd = lora.get_fd();
-    delay(1000000000);
+
+    while (1)
+    {
+        delay(1000);
+        printf(".");
+#if 0
+        printf("now send message\n");
+        char tmp_buf[10] = {'D', 'E', 'F'};
+        lora.send(tmp_buf, 3, 0x00, 0x01, 23);
+#endif
+    }
+
 #if 0
     while (1)
     {
